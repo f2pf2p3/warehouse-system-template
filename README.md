@@ -104,6 +104,289 @@ backend/
 └── README.md
 ```
 
+## Backend Foundation
+
+The project follows a layered backend structure. New features should follow the same flow instead of putting business logic directly in routes.
+
+```text
+Client
+  ↓
+Routes
+  ↓
+Middleware
+  ↓
+Controllers
+  ↓
+Services
+  ↓
+Prisma Client
+  ↓
+PostgreSQL
+```
+
+### Core Foundation
+
+Before implementing individual warehouse features, the backend should have these common building blocks:
+
+```text
+src/
+├── app.ts
+├── server.ts
+│
+├── config/
+│   └── database.ts
+│
+├── middleware/
+│   ├── auth.middleware.ts
+│   ├── role.middleware.ts
+│   └── error.middleware.ts
+│
+├── types/
+│   ├── auth.types.ts
+│   └── express.d.ts
+│
+├── validators/
+│   └── ...
+│
+├── errors/
+│   └── AppError.ts
+│
+├── utils/
+│   ├── jwt.ts
+│   └── password.ts
+│
+├── routes/
+├── controllers/
+└── services/
+```
+
+### Application and Server
+
+`app.ts` should create and configure the Express application. `server.ts` should be responsible for starting the HTTP server. Keeping these separate makes the application easier to test.
+
+```text
+app.ts
+  ↓
+server.ts
+  ↓
+listen(PORT)
+```
+
+### Database Layer
+
+`config/database.ts` should provide the shared Prisma Client instance. Services should use this shared client instead of creating a new client inside each controller or service.
+
+```text
+Services
+   ↓
+Prisma Client
+   ↓
+PostgreSQL
+```
+
+### Authentication and Authorization
+
+Authentication verifies who the user is. Authorization verifies what the user is allowed to do.
+
+```text
+auth.routes.ts
+      ↓
+auth.middleware.ts
+      ↓
+auth.controller.ts
+      ↓
+auth.service.ts
+      ↓
+jwt.ts / password.ts
+```
+
+Roles:
+
+```text
+Admin
+Warehouse Manager
+Staff
+Viewer
+```
+
+Private routes should verify the JWT before reaching protected controllers. Restricted routes should apply role-based authorization after authentication.
+
+### Request Validation
+
+Request bodies, route parameters, and query parameters should be validated before business logic runs.
+
+```text
+Request
+  ↓
+Validation
+  ↓
+Authentication
+  ↓
+Controller
+  ↓
+Service
+```
+
+Invalid data should be rejected early with a consistent client error.
+
+### Error Handling
+
+Errors should be handled centrally instead of duplicating error responses across controllers.
+
+```text
+Controller / Service
+       ↓
+   throw Error
+       ↓
+error.middleware.ts
+       ↓
+Consistent JSON response
+```
+
+Example:
+
+```json
+{
+  "success": false,
+  "message": "Product not found"
+}
+```
+
+### API Response Convention
+
+Use a consistent response structure across modules.
+
+Success:
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+List responses can include pagination:
+
+```json
+{
+  "success": true,
+  "data": [],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100
+  }
+}
+```
+
+### Database Transactions
+
+Operations that modify multiple related records should use a database transaction.
+
+Example receiving flow:
+
+```text
+BEGIN
+  ↓
+Update Inventory
+  ↓
+Create InventoryTransaction
+  ↓
+Update Receiving Order
+  ↓
+COMMIT
+```
+
+If one step fails, the operation should be rolled back.
+
+### Inventory Rules
+
+`Inventory` represents current stock. `InventoryTransaction` represents the immutable history of stock changes.
+
+```text
+Inventory
+    = Current State
+
+InventoryTransaction
+    = Historical Record
+```
+
+Stock-changing operations should create a corresponding transaction. Transfers should record both sides:
+
+```text
+Source Location
+  ↓
+TRANSFER_OUT (-quantity)
+  ↓
+Destination Location
+  ↓
+TRANSFER_IN (+quantity)
+```
+
+Negative stock should normally be rejected unless a specific business rule explicitly allows it.
+
+### Pagination, Search, and Filtering
+
+List endpoints should support pagination and filtering from the beginning.
+
+```text
+GET /api/products?page=1&limit=20
+GET /api/products?search=keyboard
+GET /api/inventory?warehouseId=1
+```
+
+### Seed Data
+
+A development database should have a repeatable way to create basic data such as roles, an admin user, development categories, a warehouse, and locations.
+
+Recommended structure:
+
+```text
+prisma/
+├── schema.prisma
+├── migrations/
+└── seed.ts
+```
+
+### Environment Configuration
+
+Secrets and environment-specific configuration should stay outside source code.
+
+```env
+DATABASE_URL=
+JWT_SECRET=
+JWT_EXPIRES_IN=
+PORT=
+```
+
+Use `.env` locally and keep `.env` out of Git. `.env.example` should document required variables without real secrets.
+
+### Testing Foundation
+
+Tests should cover modules and important warehouse workflows:
+
+```text
+Unit / service tests
+        +
+API integration tests
+        +
+End-to-end warehouse workflows
+```
+
+Important workflows include:
+
+```text
+Register → Login
+Create Product
+Create Warehouse → Location
+Purchase Order → Receiving → Inventory
+Inventory → Transfer → Inventory
+Inventory → Shipment
+```
+
+Tests should use a dedicated test database or isolated test environment rather than a personal development database.
+
+---
 ## Architecture
 
 The backend follows a layered architecture:
