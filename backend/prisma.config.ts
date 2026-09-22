@@ -1,5 +1,6 @@
 // Load environment variables from .env.
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
 
 // Import Prisma configuration helper.
 import { defineConfig } from "prisma/config";

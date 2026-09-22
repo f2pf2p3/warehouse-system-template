@@ -1,7 +1,7 @@
 // Generate the modern Prisma Client into our source tree.
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated"
+  output   = "../src/generated/prisma"
 }
 
 // PostgreSQL database.
@@ -10,11 +10,511 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  ADMIN
+  WAREHOUSE_MANAGER
+  STAFF
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InventoryTransactionType {
+  RECEIVE
+  SHIP
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum ReceivingStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
+
+enum ShipmentStatus {
+  DRAFT
+  PICKING
+  PACKED
+  SHIPPED
+  CANCELLED
+}
+
+// ============================================================
+// USER
+// ============================================================
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String?
+  id           Int        @id @default(autoincrement())
+  username     String     @unique
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(VIEWER)
+  status       UserStatus @default(ACTIVE)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  inventoryTransactions InventoryTransaction[]
+  auditLogs             AuditLog[]
+  createdPurchaseOrders PurchaseOrder[]
+  createdReceivings     ReceivingOrder[]
+  createdShipments      Shipment[]
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+// ============================================================
+// CATEGORY
+// ============================================================
+
+model Category {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// ============================================================
+// PRODUCT
+// ============================================================
+
+model Product {
+  id           Int           @id @default(autoincrement())
+  name         String
+  sku          String        @unique
+  barcode      String?       @unique
+  description  String?
+  minimumStock Int           @default(0)
+  status       ProductStatus @default(ACTIVE)
+
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventoryItems        Inventory[]
+  purchaseOrderItems    PurchaseOrderItem[]
+  receivingItems        ReceivingItem[]
+  shipmentItems         ShipmentItem[]
+  inventoryTransactions InventoryTransaction[]
+
+  @@index([name])
+  @@index([categoryId])
+  @@index([status])
+  @@map("products")
+}
+
+// ============================================================
+// WAREHOUSE
+// ============================================================
+
+model Warehouse {
+  id          Int     @id @default(autoincrement())
+  name        String
+  code        String  @unique
+  description String?
+  address     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  zones       Zone[]
+  inventories Inventory[]
+
+  sourceTransfers      InventoryTransaction[] @relation("SourceWarehouse")
+  destinationTransfers InventoryTransaction[] @relation("DestinationWarehouse")
+
+  shipments       Shipment[]
+  receivingOrders ReceivingOrder[]
+
+  @@map("warehouses")
+}
+
+// ============================================================
+// ZONE
+// ============================================================
+
+model Zone {
+  id   Int    @id @default(autoincrement())
+  name String
+  code String
+
+  warehouseId Int
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shelves Shelf[]
+
+  @@unique([warehouseId, code])
+  @@map("zones")
+}
+
+// ============================================================
+// SHELF
+// ============================================================
+
+model Shelf {
+  id   Int    @id @default(autoincrement())
+  name String
+  code String
+
+  zoneId Int
+  zone   Zone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations Location[]
+
+  @@unique([zoneId, code])
+  @@map("shelves")
+}
+
+// ============================================================
+// LOCATION
+// ============================================================
+
+model Location {
+  id   Int    @id @default(autoincrement())
+  name String
+  code String
+
+  shelfId Int
+  shelf   Shelf @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventories    Inventory[]
+  receivingItems ReceivingItem[]
+  shipmentItems  ShipmentItem[]
+
+  @@unique([shelfId, code])
+  @@map("locations")
+}
+
+// ============================================================
+// INVENTORY
+//
+// Represents the CURRENT quantity of a product at a location.
+// Example:
+// Keyboard + Main Warehouse + A01-01 = 70
+// ============================================================
+
+model Inventory {
+  id Int @id @default(autoincrement())
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  warehouseId Int
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  locationId Int
+  location   Location @relation(fields: [locationId], references: [id])
+
+  quantity Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, locationId])
+  @@index([warehouseId])
+  @@index([productId])
+  @@index([locationId])
+  @@map("inventory")
+}
+
+// ============================================================
+// INVENTORY TRANSACTION
+//
+// Immutable history of stock changes.
+// ============================================================
+
+model InventoryTransaction {
+  id Int @id @default(autoincrement())
+
+  type InventoryTransactionType
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int
+
+  // Stock before and after the transaction.
+  previousStock Int
+  newStock      Int
+
+  warehouseId Int?
+  warehouse   Warehouse? @relation("SourceWarehouse", fields: [warehouseId], references: [id])
+
+  destinationWarehouseId Int?
+  destinationWarehouse   Warehouse? @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  referenceType String?
+  referenceId   Int?
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([destinationWarehouseId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("inventory_transactions")
+}
+
+// ============================================================
+// SUPPLIER
+// ============================================================
+
+model Supplier {
+  id      Int     @id @default(autoincrement())
+  name    String
+  contact String?
+  email   String?
+  phone   String?
+  address String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+// ============================================================
+// PURCHASE ORDER
+// ============================================================
+
+model PurchaseOrder {
+  id          Int    @id @default(autoincrement())
+  orderNumber String @unique
+
+  supplierId Int
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  orderDate DateTime            @default(now())
+  status    PurchaseOrderStatus @default(DRAFT)
+
+  createdById Int
+  createdBy   User @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items           PurchaseOrderItem[]
+  receivingOrders ReceivingOrder[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+  @@map("purchase_orders")
+}
+
+// ============================================================
+// PURCHASE ORDER ITEM
+// ============================================================
+
+model PurchaseOrderItem {
+  id Int @id @default(autoincrement())
+
+  purchaseOrderId Int
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity         Int
+  receivedQuantity Int @default(0)
+
+  price Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_items")
+}
+
+// ============================================================
+// RECEIVING ORDER
+// ============================================================
+
+model ReceivingOrder {
+  id              Int    @id @default(autoincrement())
+  receivingNumber String @unique
+
+  purchaseOrderId Int?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  warehouseId Int
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  receivedDate DateTime        @default(now())
+  status       ReceivingStatus @default(PENDING)
+
+  createdById Int
+  createdBy   User @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items ReceivingItem[]
+
+  @@index([purchaseOrderId])
+  @@index([warehouseId])
+  @@index([status])
+  @@map("receiving_orders")
+}
+
+// ============================================================
+// RECEIVING ITEM
+// ============================================================
+
+model ReceivingItem {
+  id Int @id @default(autoincrement())
+
+  receivingOrderId Int
+  receivingOrder   ReceivingOrder @relation(fields: [receivingOrderId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  locationId Int
+  location   Location @relation(fields: [locationId], references: [id])
+
+  quantity Int
+
+  createdAt DateTime @default(now())
+
+  @@index([receivingOrderId])
+  @@index([productId])
+  @@index([locationId])
+  @@map("receiving_items")
+}
+
+// ============================================================
+// SHIPMENT
+// ============================================================
+
+model Shipment {
+  id             Int    @id @default(autoincrement())
+  shipmentNumber String @unique
+
+  warehouseId Int
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  status      ShipmentStatus @default(DRAFT)
+  shippedDate DateTime?
+
+  createdById Int
+  createdBy   User @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items ShipmentItem[]
+
+  @@index([warehouseId])
+  @@index([status])
+  @@index([shippedDate])
+  @@map("shipments")
+}
+
+// ============================================================
+// SHIPMENT ITEM
+// ============================================================
+
+model ShipmentItem {
+  id Int @id @default(autoincrement())
+
+  shipmentId Int
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  locationId Int
+  location   Location @relation(fields: [locationId], references: [id])
+
+  quantity Int
+
+  createdAt DateTime @default(now())
+
+  @@index([shipmentId])
+  @@index([productId])
+  @@index([locationId])
+  @@map("shipment_items")
+}
+
+// ============================================================
+// AUDIT LOG
+//
+// Records important system actions.
+// ============================================================
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  action   String
+  entity   String
+  entityId Int?
+
+  oldData Json?
+  newData Json?
+
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

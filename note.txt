@@ -1,0 +1,22 @@
+RUN PRISMA:
+npx prisma studio
+
+RUN SERVER.ts:
+npm run dev
+
+
+tests/
+Also, I used Node's built-in node:test and fetch, so you don't need Jest/Vitest/Supertest just to get the test structure in place.
+
+To run them later from backend:
+
+cd backend
+npx tsx --test tests/*.test.ts
+
+The current test suite expects the backend at:
+
+http://localhost:5000
+
+You can override it with:
+
+$env:API_URL="http://localhost:5000"

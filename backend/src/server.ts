@@ -1,20 +1,33 @@
-import express from "express";
+import app from "./app";
+import {
+  connectDatabase,
+  disconnectDatabase,
+} from "./config/database";
 
-const app = express();
+const PORT = process.env.PORT || 5000;
 
-const PORT = 5000;
+// Start the application.
+async function startServer(): Promise<void> {
+  try {
+    // Connect to PostgreSQL before accepting requests.
+    await connectDatabase();
 
-// Parse JSON request bodies.
-app.use(express.json());
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
 
-// Basic health-check endpoint.
-app.get("/", (_req, res) => {
-  res.json({
-    message: "Warehouse Management System API",
-    status: "running"
-  });
-});
+// Gracefully close the database connection.
+async function shutdown(): Promise<void> {
+  await disconnectDatabase();
+  process.exit(0);
+}
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);Q
+
+startServer();

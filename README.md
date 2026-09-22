@@ -45,13 +45,15 @@ backend/
 │   │   ├── warehouse.routes.ts
 │   │   ├── supplier.routes.ts
 │   │   ├── purchase-order.routes.ts
-│   │   └── shipment.routes.ts
+│   │   ├── shipment.routes.ts
+│   │   └── user.routes.ts
 │   │
 │   ├── services/
 │   │   ├── auth.service.ts
 │   │   ├── product.service.ts
 │   │   ├── inventory.service.ts
 │   │   ├── warehouse.service.ts
+│   │   ├── supplier.service.ts
 │   │   ├── purchase-order.service.ts
 │   │   └── shipment.service.ts
 │   │
