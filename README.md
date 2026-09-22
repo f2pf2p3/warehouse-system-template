@@ -1,6 +1,6 @@
-# Warehouse Management System Backend (Goal)
+# Warehouse Management System Backend
 
-Backend API for a Warehouse Management System (WMS), built with **Node.js, Express.js, TypeScript, Prisma, and PostgreSQL**.
+Backend API for a Warehouse Management System (WMS), built with **Node.js, Express.js, TypeScript, Prisma 7, and PostgreSQL**.
 
 The system provides APIs for managing users, products, warehouses, inventory, suppliers, purchase orders, shipments, and inventory transactions.
 
@@ -12,9 +12,10 @@ The system provides APIs for managing users, products, warehouses, inventory, su
 | TypeScript | Backend programming language |
 | Express.js | REST API framework           |
 | PostgreSQL | Relational database          |
-| Prisma     | ORM and database toolkit     |
+| Prisma 7   | ORM and database toolkit     |
 | JWT        | Authentication               |
 | bcrypt     | Password hashing             |
+| Node.js Test Runner | API integration tests |
 
 ## Project Structure
 
@@ -26,12 +27,17 @@ backend/
 │   │
 │   ├── controllers/
 │   │   ├── auth.controller.ts
+│   │   ├── user.controller.ts
 │   │   ├── product.controller.ts
+│   │   ├── category.controller.ts
 │   │   ├── inventory.controller.ts
 │   │   ├── warehouse.controller.ts
+│   │   ├── location.controller.ts
 │   │   ├── supplier.controller.ts
 │   │   ├── purchase-order.controller.ts
-│   │   └── shipment.controller.ts
+│   │   ├── receiving.controller.ts
+│   │   ├── shipment.controller.ts
+│   │   └── report.controller.ts
 │   │
 │   ├── middleware/
 │   │   ├── auth.middleware.ts
@@ -40,22 +46,31 @@ backend/
 │   │
 │   ├── routes/
 │   │   ├── auth.routes.ts
+│   │   ├── user.routes.ts
 │   │   ├── product.routes.ts
+│   │   ├── category.routes.ts
 │   │   ├── inventory.routes.ts
 │   │   ├── warehouse.routes.ts
+│   │   ├── location.routes.ts
 │   │   ├── supplier.routes.ts
 │   │   ├── purchase-order.routes.ts
+│   │   ├── receiving.routes.ts
 │   │   ├── shipment.routes.ts
-│   │   └── user.routes.ts
+│   │   └── report.routes.ts
 │   │
 │   ├── services/
 │   │   ├── auth.service.ts
+│   │   ├── user.service.ts
 │   │   ├── product.service.ts
+│   │   ├── category.service.ts
 │   │   ├── inventory.service.ts
 │   │   ├── warehouse.service.ts
+│   │   ├── location.service.ts
 │   │   ├── supplier.service.ts
 │   │   ├── purchase-order.service.ts
-│   │   └── shipment.service.ts
+│   │   ├── receiving.service.ts
+│   │   ├── shipment.service.ts
+│   │   └── report.service.ts
 │   │
 │   ├── config/
 │   │   └── database.ts
@@ -72,6 +87,13 @@ backend/
 │   └── migrations/
 │
 ├── tests/
+│   ├── auth.test.ts
+│   ├── product.test.ts
+│   ├── warehouse.test.ts
+│   ├── inventory.test.ts
+│   ├── purchasing.test.ts
+│   ├── shipment.test.ts
+│   └── warehouse-workflow.test.ts
 │
 ├── .env
 ├── .env.example
@@ -600,6 +622,27 @@ Test the server:
 GET http://localhost:5000
 ```
 
+
+## Testing
+
+The project uses the Node.js built-in test runner with TypeScript executed through `tsx`.
+
+Start the backend first:
+
+```powershell
+npm run dev
+```
+
+Then, in another terminal:
+
+```powershell
+npx tsx --test tests/*.test.ts
+```
+
+The test suite covers authentication, products, warehouse setup, inventory operations, purchasing, shipments, and an end-to-end warehouse workflow.
+
+The tests require the corresponding API endpoints and a running PostgreSQL database.
+
 ## Build
 
 Compile TypeScript:
@@ -773,6 +816,10 @@ REST API
       ↓
 Frontend
 ```
+
+## Current Development Status
+
+The project contains the backend foundation, Prisma schema/client setup, layered API architecture, and integration test structure. Business endpoints are being implemented incrementally.
 
 ## Project Goal
 
