@@ -8,6 +8,8 @@ import warehouseRoutes from "./routes/warehouse.routes";
 import supplierRoutes from "./routes/supplier.routes";
 import purchaseOrderRoutes from "./routes/purchase-order.routes";
 import shipmentRoutes from "./routes/shipment.routes";
+import reportRoutes from "./routes/report.routes";
+import userRoutes from "./routes/user.routes";
 
 // Import global error middleware.
 import errorMiddleware from "./middleware/error.middleware";
@@ -36,7 +38,8 @@ app.use("/api/warehouses", warehouseRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/shipments", shipmentRoutes);
-
+app.use("/api/reports", reportRoutes);
+app.use("/api/users", userRoutes);
 // Global error handler.
 // This should be registered after all routes.
 app.use(errorMiddleware);

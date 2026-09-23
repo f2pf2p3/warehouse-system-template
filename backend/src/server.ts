@@ -28,6 +28,6 @@ async function shutdown(): Promise<void> {
 }
 
 process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);Q
+process.on("SIGTERM", shutdown);
 
 startServer();
